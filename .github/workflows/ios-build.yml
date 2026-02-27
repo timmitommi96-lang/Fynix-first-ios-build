@@ -1,0 +1,58 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web Project
+        run: npm run build
+
+      - name: Install Capacitor iOS
+        run: |
+          npm install @capacitor/ios
+          npx cap add ios
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Build iOS App (Archive)
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace \
+                     -scheme App \
+                     -configuration Release \
+                     -archivePath App.xcarchive \
+                     archive \
+                     CODE_SIGN_IDENTITY="" \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGNING_ALLOWED=NO
+
+      - name: Export IPA (Unsigned)
+        run: |
+          mkdir build
+          mv App.xcarchive build/
+          # Note: Real IPA requires signing. This uploads the archive for reference.
+          # To get a real .ipa, you must add 'Import Code Signing' steps.
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-archive
+          path: build/App.xcarchive
